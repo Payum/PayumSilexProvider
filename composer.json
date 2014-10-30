@@ -1,0 +1,55 @@
+{
+  "name": "payum/payum-silex-provider",
+  "type": "library",
+  "description": "Rich payment solutions for Silex framework. Paypal, Payex, Authorize.Net, Be2bill, Omnipay, Recurring paymens, IPN and many more",
+  "keywords": [
+    "payment",
+    "paypal",
+    "paypal express checkout",
+    "paypal pro checkout",
+    "be2bill",
+    "authorize.net",
+    "klarna",
+    "stripe",
+    "payex",
+    "omnipay",
+    "recurring payment",
+    "offline",
+    "instant notification"
+  ],
+  "homepage": "http://payum.forma-dev.com",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Kotlyar Maksim",
+      "email": "kotlyar.maksim@gmail.com"
+    },
+    {
+      "name":     "Payum project",
+      "homepage": "http://payum.forma-dev.com/"
+    },
+    {
+      "name":     "Community contributions",
+      "homepage": "https://github.com/Payum/PayumSilexProvider/contributors"
+    }
+  ],
+  "require": {
+    "php": ">=5.3.2",
+    "silex/silex": "~1.2",
+    "payum/core": "0.12.*"
+  },
+  "suggest": {
+    "payum/payum": "If you want to install all supported payments at once"
+  },
+  "autoload": {
+    "psr-0": { "Payum\\Silex": "src/" }
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "0.12-dev"
+    }
+  },
+  "config": {
+    "bin-dir": "bin"
+  }
+}
