@@ -1,9 +1,15 @@
 <?php
 namespace Payum\Silex;
 
+use Payum\Core\Bridge\Symfony\Action\ObtainCreditCardAction;
+use Payum\Core\Bridge\Symfony\Form\Type\CreditCardExpirationDateType;
+use Payum\Core\Bridge\Symfony\Form\Type\CreditCardType;
 use Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter;
 use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
 use Payum\Core\Bridge\Symfony\Security\TokenFactory;
+use Payum\Core\Bridge\Twig\Action\RenderTemplateAction;
+use Payum\Core\Bridge\Twig\TwigFactory;
+use Payum\Core\PaymentInterface;
 use Payum\Core\Registry\SimpleRegistry;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Silex\Controller\AuthorizeController;
@@ -37,6 +43,31 @@ class PayumProvider implements ServiceProviderInterface
      */
     protected function registerService(Application $app)
     {
+        $app['payum.template.layout'] = '@PayumCore/layout.html.twig';
+        $app['payum.template.obtain_credit_card'] = '@PayumSymfonyBridge/obtainCreditCard.html.twig';
+
+        $app['twig.loader.filesystem'] = $app->share($app->extend('twig.loader.filesystem', function($loader, $app) {
+            /** @var  \Twig_Loader_Filesystem $loader */
+
+            $loader->addPath(TwigFactory::guessViewsPath('Payum\Core\Payment'), 'PayumCore');
+            $loader->addPath(TwigFactory::guessViewsPath('Payum\Stripe\PaymentFactory'), 'PayumStripe');
+            $loader->addPath(TwigFactory::guessViewsPath('Payum\Klarna\Checkout\PaymentFactory'), 'PayumKlarnaCheckout');
+            $loader->addPath(TwigFactory::guessViewsPath('Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter'), 'PayumSymfonyBridge');
+
+            return $loader;
+        }));
+
+        $app['payum.action.render_template'] = $app->share(function($app) {
+            return new RenderTemplateAction($app['twig'], $app['payum.template.layout']);
+        });
+
+        $app['payum.action.obtain_credit_card'] = $app->share(function($app) {
+            $action = new ObtainCreditCardAction($app['form.factory'], $app['payum.template.obtain_credit_card']);
+            $action->setRequest($app['request']);
+
+            return $action;
+        });
+
         $app['payum.security.token_storage'] = $app->share(function() {
             throw new \LogicException('This service has to be overwritten. Check the example in the doc at payum.org');
         });
@@ -60,6 +91,13 @@ class PayumProvider implements ServiceProviderInterface
             );
         });
 
+        $app['form.types'] = $app->share($app->extend('form.types', function ($types) use ($app) {
+            $types[] = new CreditCardType();
+            $types[] = new CreditCardExpirationDateType();
+
+            return $types;
+        }));
+
         $app['payum.payments'] = $app->share(function () {
             return [
                 // name => instance of PaymentInterface
@@ -73,6 +111,11 @@ class PayumProvider implements ServiceProviderInterface
         });
 
         $app['payum'] = $app->share(function($app) {
+            foreach ($app['payum.payments'] as $payment) {
+                $payment->addAction($app['payum.action.render_template']);
+                $payment->addAction($app['payum.action.obtain_credit_card']);
+            }
+
             return new SimpleRegistry($app['payum.payments'], $app['payum.storages'], null, null);
         });
     }
