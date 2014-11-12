@@ -9,7 +9,6 @@ use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
 use Payum\Core\Bridge\Symfony\Security\TokenFactory;
 use Payum\Core\Bridge\Twig\Action\RenderTemplateAction;
 use Payum\Core\Bridge\Twig\TwigFactory;
-use Payum\Core\PaymentInterface;
 use Payum\Core\Registry\SimpleRegistry;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Silex\Controller\AuthorizeController;
@@ -87,7 +86,8 @@ class PayumProvider implements ServiceProviderInterface
                 $app['payum'],
                 'payum_capture_do',
                 'payum_notify_do',
-                'payum_authorize_do'
+                'payum_authorize_do',
+                'payum_refund_do'
             );
         });
 
