@@ -31,7 +31,7 @@ class PaymentController extends BaseController
 
         return new JsonResponse(array(
             'status' => $status->getValue(),
-            'details' => $status->getModel()->getDetails()
+            'details' => $status->getFirstModel()->getDetails()
         ));
     }
 }

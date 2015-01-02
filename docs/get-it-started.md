@@ -6,7 +6,7 @@ Look at sandbox to find more examples.
 ## Installation
 
 ```bash
-php composer.phar require "payum/payum-silex-provider:*@stable" "payum/xxx:*@stable"
+php composer.phar require payum/payum-silex-provider payum/xxx
 ```
 
 _**Note**: Where payum/xxx is a payum package, for example it could be payum/paypal-express-checkout-nvp. Look at [supported payments](https://github.com/Payum/Core/blob/master/Resources/docs/supported-payments.md) to find out what you can use._
@@ -37,25 +37,25 @@ Now you can configure the payment gateway and the storages:
 ```php
 <?php
 use Payum\Core\Storage\FilesystemStorage;
-use Payum\Paypal\ExpressCheckout\Nvp\Api;
-use Payum\Paypal\ExpressCheckout\Nvp\PaymentFactory as PaypalPaymentFactory;
+
+$paypalExpressCheckoutPaymentFactory = new \Payum\Paypal\ExpressCheckout\Nvp\PaymentFactory();
 
 $app['payum.security.token_storage'] = $app->share(function($app) {
     return new FilesystemStorage('/path/to/storage', 'Payum\Core\Model\Token', 'hash'),
 });
 
 $app['payum.payments'] = $app->share($app->extend('payum.payments', function ($payments) use ($app) {
-    $payments['paypal_ec'] = PaypalPaymentFactory::create(new Api(array(
+    $payments['paypal_ec'] = $paypalExpressCheckoutPaymentFactory->create(array(
         'username' => 'EDIT_ME',
         'password' => 'EDIT_ME',
         'signature' => 'EDIT_ME',
         'sandbox' => true
-    )));
+    ));
     
     return $payments;
 });
 
-$app['payum.storages'] = $app->share($app->extend('payum.payments', function ($storages) use ($app) {
+$app['payum.storages'] = $app->share($app->extend('payum.storages', function ($storages) use ($app) {
     $storages['Payum\Core\Model\Order'] = new FilesystemStorage('path/to/storage', 'Payum\Core\Model\Order');
     
     return $storages;
@@ -81,10 +81,10 @@ class PaymentController
 	{
         $storage = $this->app['payum']->getStorage('Payum\Core\Model\Order');
 
-        $order = $storage->createModel();
+        $order = $storage->create();
         $order->setTotalAmount(123);
         $order->setCurrencyCode('USD');
-        $storage->updateModel($details);
+        $storage->update($details);
 
         $captureToken = $this->app['payum.security.token_factory']->createCaptureToken('paypal_ec', $order, 'payment_done');
 
