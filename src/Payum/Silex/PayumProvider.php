@@ -11,6 +11,7 @@ use Payum\Core\Bridge\Twig\Action\RenderTemplateAction;
 use Payum\Core\Bridge\Twig\TwigFactory;
 use Payum\Core\Registry\SimpleRegistry;
 use Payum\Core\Reply\ReplyInterface;
+use Payum\Core\Security\GenericTokenFactory;
 use Payum\Silex\Controller\AuthorizeController;
 use Payum\Silex\Controller\CaptureController;
 use Payum\Silex\Controller\NotifyController;
@@ -80,14 +81,14 @@ class PayumProvider implements ServiceProviderInterface
         });
 
         $app['payum.security.token_factory'] = $app->share(function($app) {
-            return new TokenFactory(
-                $app['url_generator'],
-                $app['payum.security.token_storage'],
-                $app['payum'],
-                'payum_capture_do',
-                'payum_notify_do',
-                'payum_authorize_do',
-                'payum_refund_do'
+            return new GenericTokenFactory(
+                new TokenFactory($app['payum.security.token_storage'], $app['payum'], $app['url_generator']),
+                array(
+                    'capture' => 'payum_capture_do',
+                    'notify' => 'payum_notify_do',
+                    'authorize' => 'payum_authorize_do',
+                    'refund' => 'payum_refund_do'
+                )
             );
         });
 
@@ -116,7 +117,7 @@ class PayumProvider implements ServiceProviderInterface
                 $payment->addAction($app['payum.action.obtain_credit_card']);
             }
 
-            return new SimpleRegistry($app['payum.payments'], $app['payum.storages'], null, null);
+            return new SimpleRegistry($app['payum.payments'], $app['payum.storages'], array());
         });
     }
 
