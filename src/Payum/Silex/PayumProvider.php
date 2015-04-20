@@ -54,7 +54,7 @@ class PayumProvider implements ServiceProviderInterface
         $app['twig.loader.filesystem'] = $app->share($app->extend('twig.loader.filesystem', function($loader, $app) {
             /** @var  \Twig_Loader_Filesystem $loader */
 
-            foreach (TwigFactory::createGenericPaths() as $name => $path) {
+            foreach (TwigFactory::createGenericPaths() as $path => $name) {
                 $loader->addPath($path, $name);
             }
 
