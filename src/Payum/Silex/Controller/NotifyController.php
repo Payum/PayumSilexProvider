@@ -16,9 +16,9 @@ class NotifyController extends PayumController
     {
         $token = $this->httpRequestVerifier->verify($request);
 
-        $payment = $this->registry->getPayment($token->getPaymentName());
+        $gateway = $this->registry->getGateway($token->getGatewayName());
 
-        $payment->execute(new Notify($token));
+        $gateway->execute(new Notify($token));
 
         return new Response('', 204);
     }

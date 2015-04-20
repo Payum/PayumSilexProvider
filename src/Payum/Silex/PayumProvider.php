@@ -1,14 +1,19 @@
 <?php
 namespace Payum\Silex;
 
+use Payum\Core\Bridge\Symfony\Action\GetHttpRequestAction;
 use Payum\Core\Bridge\Symfony\Action\ObtainCreditCardAction;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardExpirationDateType;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardType;
+use Payum\Core\Bridge\Symfony\Form\Type\GatewayConfigType;
+use Payum\Core\Bridge\Symfony\Form\Type\GatewayFactoriesChoiceType;
 use Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter;
 use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
 use Payum\Core\Bridge\Symfony\Security\TokenFactory;
-use Payum\Core\Bridge\Twig\Action\RenderTemplateAction;
 use Payum\Core\Bridge\Twig\TwigFactory;
+use Payum\Core\GatewayFactory;
+use Payum\Core\GatewayFactoryInterface;
+use Payum\Core\Registry\DynamicRegistry;
 use Payum\Core\Registry\SimpleRegistry;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Core\Security\GenericTokenFactory;
@@ -49,16 +54,18 @@ class PayumProvider implements ServiceProviderInterface
         $app['twig.loader.filesystem'] = $app->share($app->extend('twig.loader.filesystem', function($loader, $app) {
             /** @var  \Twig_Loader_Filesystem $loader */
 
-            $loader->addPath(TwigFactory::guessViewsPath('Payum\Core\Payment'), 'PayumCore');
-            $loader->addPath(TwigFactory::guessViewsPath('Payum\Stripe\PaymentFactory'), 'PayumStripe');
-            $loader->addPath(TwigFactory::guessViewsPath('Payum\Klarna\Checkout\PaymentFactory'), 'PayumKlarnaCheckout');
-            $loader->addPath(TwigFactory::guessViewsPath('Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter'), 'PayumSymfonyBridge');
+            foreach (TwigFactory::createGenericPaths() as $name => $path) {
+                $loader->addPath($path, $name);
+            }
 
             return $loader;
         }));
 
-        $app['payum.action.render_template'] = $app->share(function($app) {
-            return new RenderTemplateAction($app['twig'], $app['payum.template.layout']);
+        $app['payum.action.get_http_request'] = $app->share(function($app) {
+            $action = new GetHttpRequestAction();
+            $action->setHttpRequest($app['request']);
+
+            return $action;
         });
 
         $app['payum.action.obtain_credit_card'] = $app->share(function($app) {
@@ -66,6 +73,10 @@ class PayumProvider implements ServiceProviderInterface
             $action->setRequest($app['request']);
 
             return $action;
+        });
+
+        $app['payum.gateway_config_storage'] = $app->share(function($app) {
+            return null;
         });
 
         $app['payum.security.token_storage'] = $app->share(function() {
@@ -95,13 +106,47 @@ class PayumProvider implements ServiceProviderInterface
         $app['form.types'] = $app->share($app->extend('form.types', function ($types) use ($app) {
             $types[] = new CreditCardType();
             $types[] = new CreditCardExpirationDateType();
+            $types[] = new GatewayFactoriesChoiceType($app['payum.gateway_choices']);
+            $types[] = new GatewayConfigType($app['payum']);
 
             return $types;
         }));
 
-        $app['payum.payments'] = $app->share(function () {
+        $app['payum.gateway_choices'] = $app->share(function ($app) {
+            $choices = array();
+            foreach ($app['payum.gateway_factories'] as $factory) {
+                /** @var $factory GatewayFactoryInterface */
+                $config = $factory->createConfig();
+
+                $choices[$config['payum.factory_name']] = $config['payum.factory_title'];
+            }
+
+            return $choices;
+        });
+
+        $app['payum.core_gateway_factory_config'] = $app->share(function ($app) {
             return [
-                // name => instance of PaymentInterface
+                'twig.env' => $app['twig'],
+                'payum.template.layout' => $app['payum.template.layout'],
+
+                'payum.action.get_http_request' => $app['payum.action.get_http_request'],
+                'payum.action.obtain_credit_card' => $app['payum.action.get_http_request'],
+            ];
+        });
+
+        $app['payum.core_gateway_factory'] = $app->share(function ($app) {
+            return new GatewayFactory($app['payum.core_gateway_factory_config']);
+        });
+
+        $app['payum.gateway_factories'] = $app->share(function () {
+            return [
+                // name => instance of GatewayFactoryInterface
+            ];
+        });
+
+        $app['payum.gateways'] = $app->share(function () {
+            return [
+                // name => instance of GatewayInterface
             ];
         });
 
@@ -112,12 +157,17 @@ class PayumProvider implements ServiceProviderInterface
         });
 
         $app['payum'] = $app->share(function($app) {
-            foreach ($app['payum.payments'] as $payment) {
-                $payment->addAction($app['payum.action.render_template']);
-                $payment->addAction($app['payum.action.obtain_credit_card']);
+            $registry = new SimpleRegistry(
+                $app['payum.gateways'],
+                $app['payum.storages'],
+                $app['payum.gateway_factories']
+            );
+
+            if ($configStorage = $app['payum.gateway_config_storage']) {
+                $registry = new DynamicRegistry($configStorage, $registry);
             }
 
-            return new SimpleRegistry($app['payum.payments'], $app['payum.storages'], array());
+            return $registry;
         });
     }
 

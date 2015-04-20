@@ -25,13 +25,15 @@ class PaymentController extends BaseController
     {
         $token = $this->app['payum.security.http_request_verifier']->verify($request);
 
-        $payment = $this->app['payum']->getPayment($token->getPaymentName());
+        $gateway = $this->app['payum']->getGateway($token->getGatewayName());
 
-        $payment->execute($status = new GetHumanStatus($token));
+        $gateway->execute($status = new GetHumanStatus($token));
+        
+        $payment = $status->getFirstModel();
 
         return new JsonResponse(array(
             'status' => $status->getValue(),
-            'details' => $status->getFirstModel()->getDetails()
+            'details' => $payment->getDetails(), 
         ));
     }
 }

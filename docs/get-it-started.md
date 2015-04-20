@@ -9,9 +9,9 @@ Look at sandbox to find more examples.
 php composer.phar require payum/payum-silex-provider payum/xxx
 ```
 
-_**Note**: Where payum/xxx is a payum package, for example it could be payum/paypal-express-checkout-nvp. Look at [supported payments](https://github.com/Payum/Core/blob/master/Resources/docs/supported-payments.md) to find out what you can use._
+_**Note**: Where payum/xxx is a payum package, for example it could be payum/paypal-express-checkout-nvp. Look at [supported gateways](https://github.com/Payum/Core/blob/master/Resources/docs/supported-gateways.md) to find out what you can use._
 
-_**Note**: Use payum/payum if you want to install all payments at once._
+_**Note**: Use payum/payum if you want to install all gateways at once._
 
 Now you have all codes prepared and ready to be used.
 
@@ -32,31 +32,31 @@ $app->register(new \Silex\Provider\ServiceControllerServiceProvider());
 $app->register(new \Payum\Silex\PayumProvider());
 ```
 
-Now you can configure the payment gateway and the storages:
+Now you can configure the gateway gateway and the storages:
 
 ```php
 <?php
 use Payum\Core\Storage\FilesystemStorage;
 
-$paypalExpressCheckoutPaymentFactory = new \Payum\Paypal\ExpressCheckout\Nvp\PaymentFactory();
-
 $app['payum.security.token_storage'] = $app->share(function($app) {
     return new FilesystemStorage('/path/to/storage', 'Payum\Core\Model\Token', 'hash'),
 });
 
-$app['payum.payments'] = $app->share($app->extend('payum.payments', function ($payments) use ($app) {
-    $payments['paypal_ec'] = $paypalExpressCheckoutPaymentFactory->create(array(
+$app['payum.gateways'] = $app->share($app->extend('payum.gateways', function ($gateways) use ($app) {
+    $paypalExpressCheckoutGatewayFactory = new \Payum\Paypal\ExpressCheckout\Nvp\PaypalExpressCheckoutGatewayFactory();
+
+    $gateways['paypal_ec'] = $paypalExpressCheckoutGatewayFactory->create(array(
         'username' => 'EDIT_ME',
         'password' => 'EDIT_ME',
         'signature' => 'EDIT_ME',
         'sandbox' => true
     ));
     
-    return $payments;
+    return $gateways;
 });
 
 $app['payum.storages'] = $app->share($app->extend('payum.storages', function ($storages) use ($app) {
-    $storages['Payum\Core\Model\Order'] = new FilesystemStorage('path/to/storage', 'Payum\Core\Model\Order');
+    $storages['Payum\Core\Model\Payment'] = new FilesystemStorage('path/to/storage', 'Payum\Core\Model\Payment');
     
     return $storages;
 });
@@ -79,14 +79,14 @@ class PaymentController
 
 	public function preparePaypalAction()
 	{
-        $storage = $this->app['payum']->getStorage('Payum\Core\Model\Order');
+        $storage = $this->app['payum']->getStorage('Payum\Core\Model\Payment');
 
-        $order = $storage->create();
-        $order->setTotalAmount(123);
-        $order->setCurrencyCode('USD');
+        $payment = $storage->create();
+        $payment->setTotalAmount(123);
+        $payment->setCurrencyCode('USD');
         $storage->update($details);
 
-        $captureToken = $this->app['payum.security.token_factory']->createCaptureToken('paypal_ec', $order, 'payment_done');
+        $captureToken = $this->app['payum.security.token_factory']->createCaptureToken('paypal_ec', $payment, 'payment_done');
 
         return new RedirectResponse($captureToken->getTargetUrl());
 	}
