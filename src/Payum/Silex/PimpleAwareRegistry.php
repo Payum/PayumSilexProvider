@@ -24,6 +24,6 @@ class PimpleAwareRegistry extends AbstractRegistry
      */
     protected function getService($id)
     {
-        return isset($this->pimple[$id]) ? $this->pimple[$id] : $id;
+        return is_object($id) ? $id : $this->pimple[$id];
     }
 }

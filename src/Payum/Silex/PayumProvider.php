@@ -113,15 +113,7 @@ class PayumProvider implements ServiceProviderInterface
         }));
 
         $app['payum.gateway_choices'] = $app->share(function ($app) {
-            $choices = array();
-            foreach ($app['payum.gateway_factories'] as $factory) {
-                /** @var $factory GatewayFactoryInterface */
-                $config = $factory->createConfig();
-
-                $choices[$config['payum.factory_name']] = $config['payum.factory_title'];
-            }
-
-            return $choices;
+            return array();
         });
 
         $app['payum.core_gateway_factory_config'] = $app->share(function ($app) {
