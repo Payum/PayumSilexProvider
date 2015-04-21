@@ -140,28 +140,29 @@ class PayumProvider implements ServiceProviderInterface
 
         $app['payum.gateway_factories'] = $app->share(function () {
             return [
-                // name => instance of GatewayFactoryInterface
+                // name => instance of GatewayFactoryInterface or service id
             ];
         });
 
         $app['payum.gateways'] = $app->share(function () {
             return [
-                // name => instance of GatewayInterface
+                // name => instance of GatewayInterface or service id
             ];
         });
 
         $app['payum.storages'] = $app->share(function ($app) {
             return [
-                // modelClass => instance of StorageInterface
+                // modelClass => instance of StorageInterface or service id
             ];
         });
 
         $app['payum'] = $app->share(function($app) {
-            $registry = new SimpleRegistry(
+            $registry = new PimpleAwareRegistry(
                 $app['payum.gateways'],
                 $app['payum.storages'],
                 $app['payum.gateway_factories']
             );
+            $registry->setPimple($app);
 
             if ($configStorage = $app['payum.gateway_config_storage']) {
                 $registry = new DynamicRegistry($configStorage, $registry);
