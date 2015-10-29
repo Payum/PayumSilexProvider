@@ -1,22 +1,22 @@
 <?php
 namespace Payum\Silex;
 
+use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Bridge\Symfony\Action\GetHttpRequestAction;
 use Payum\Core\Bridge\Symfony\Action\ObtainCreditCardAction;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardExpirationDateType;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardType;
 use Payum\Core\Bridge\Symfony\Form\Type\GatewayConfigType;
 use Payum\Core\Bridge\Symfony\Form\Type\GatewayFactoriesChoiceType;
+use Payum\Core\Bridge\Symfony\Form\Type\GatewayChoiceType;
 use Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter;
 use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
 use Payum\Core\Bridge\Symfony\Security\TokenFactory;
 use Payum\Core\Bridge\Twig\TwigFactory;
-use Payum\Core\GatewayFactory;
 use Payum\Core\Payum;
 use Payum\Core\PayumBuilder;
 use Payum\Core\Registry\StorageRegistryInterface;
 use Payum\Core\Reply\ReplyInterface;
-use Payum\Core\Security\GenericTokenFactory;
 use Payum\Core\Storage\StorageInterface;
 use Payum\Silex\Controller\AuthorizeController;
 use Payum\Silex\Controller\CaptureController;
@@ -64,8 +64,8 @@ class PayumProvider implements ServiceProviderInterface
 
                     return $action;
                 },
-                'payum.action.obtain_credit_card' => function() use($app) {
-                    $action = new ObtainCreditCardAction($app['form.factory'], $app['payum.template.obtain_credit_card']);
+                'payum.action.obtain_credit_card' => function(ArrayObject $config) use($app) {
+                    $action = new ObtainCreditCardAction($app['form.factory'], $config['payum.template.obtain_credit_card']);
                     $action->setRequest($app['request']);
 
                     return $action;
@@ -114,13 +114,14 @@ class PayumProvider implements ServiceProviderInterface
         $app['form.types'] = $app->share($app->extend('form.types', function ($types) use ($app) {
             $types[] = new CreditCardType();
             $types[] = new CreditCardExpirationDateType();
-            $types[] = new GatewayFactoriesChoiceType($app['payum.gateway_choices']);
+            $types[] = new GatewayFactoriesChoiceType($app['payum.gateway_factory_choices']);
+            $types[] = new GatewayChoiceType($app['payum.gateway_choices']);
             $types[] = new GatewayConfigType($app['payum']);
 
             return $types;
         }));
 
-        $app['payum.gateway_choices'] = $app->share(function ($app) {
+        $app['payum.gateway_factory_choices'] = $app->share(function ($app) {
             /** @var Payum $payum */
             $payum = $app['payum'];
 
@@ -131,6 +132,18 @@ class PayumProvider implements ServiceProviderInterface
                 }
 
                 $choices[$name] = ucwords(str_replace(['_', 'omnipay'], ' ', $name));
+            }
+
+            return $choices;
+        });
+
+        $app['payum.gateway_choices'] = $app->share(function ($app) {
+            /** @var Payum $payum */
+            $payum = $app['payum'];
+
+            $choices = [];
+            foreach ($payum->getGateways() as $name => $gateway) {
+                $choices[$name] = ucwords(str_replace(['_'], ' ', $name));
             }
 
             return $choices;
