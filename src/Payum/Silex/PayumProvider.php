@@ -12,14 +12,19 @@ use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
 use Payum\Core\Bridge\Symfony\Security\TokenFactory;
 use Payum\Core\Bridge\Twig\TwigFactory;
 use Payum\Core\GatewayFactory;
+use Payum\Core\Payum;
+use Payum\Core\PayumBuilder;
+use Payum\Core\Registry\StorageRegistryInterface;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Core\Security\GenericTokenFactory;
+use Payum\Core\Storage\StorageInterface;
 use Payum\Silex\Controller\AuthorizeController;
 use Payum\Silex\Controller\CaptureController;
 use Payum\Silex\Controller\NotifyController;
 use Payum\Silex\Controller\RefundController;
 use Silex\Application;
 use Silex\ServiceProviderInterface;
+use Symfony\Component\HttpKernel\HttpCache\StoreInterface;
 
 class PayumProvider implements ServiceProviderInterface
 {
@@ -45,8 +50,52 @@ class PayumProvider implements ServiceProviderInterface
      */
     protected function registerService(Application $app)
     {
-        $app['payum.template.layout'] = '@PayumCore/layout.html.twig';
-        $app['payum.template.obtain_credit_card'] = '@PayumSymfonyBridge/obtainCreditCard.html.twig';
+        $app['payum.builder'] = $app->share(function($app) {
+            $builder = new PayumBuilder();
+
+            $builder->addDefaultStorages();
+
+            $builder->setCoreGatewayFactoryConfig([
+                'twig.env' => $app['twig'],
+
+                'payum.action.get_http_request' => function() use ($app) {
+                    $action = new GetHttpRequestAction();
+                    $action->setHttpRequest($app['request']);
+
+                    return $action;
+                },
+                'payum.action.obtain_credit_card' => function() use($app) {
+                    $action = new ObtainCreditCardAction($app['form.factory'], $app['payum.template.obtain_credit_card']);
+                    $action->setRequest($app['request']);
+
+                    return $action;
+                },
+            ]);
+
+            $builder->setGenericTokenFactoryPaths([
+                'capture' => 'payum_capture_do',
+                'notify' => 'payum_notify_do',
+                'authorize' => 'payum_authorize_do',
+                'refund' => 'payum_refund_do'
+            ]);
+
+            $builder->setTokenFactory(function(StorageInterface $tokenStorage, StorageRegistryInterface $registry) use ($app) {
+                return new TokenFactory($tokenStorage, $registry, $app['url_generator']);
+            });
+
+            $builder->setHttpRequestVerifier(function(StorageInterface $tokenStorage) {
+                return new HttpRequestVerifier($tokenStorage);
+            });
+
+            return $builder;
+        });
+
+        $app['payum'] = $app->share(function($app) {
+            /** @var PayumBuilder $builder */
+            $builder = $app['payum.builder'];
+
+            return $builder->getPayum();
+        });
 
         $app['twig.loader.filesystem'] = $app->share($app->extend('twig.loader.filesystem', function($loader, $app) {
             /** @var  \Twig_Loader_Filesystem $loader */
@@ -58,46 +107,8 @@ class PayumProvider implements ServiceProviderInterface
             return $loader;
         }));
 
-        $app['payum.action.get_http_request'] = $app->share(function($app) {
-            $action = new GetHttpRequestAction();
-            $action->setHttpRequest($app['request']);
-
-            return $action;
-        });
-
-        $app['payum.action.obtain_credit_card'] = $app->share(function($app) {
-            $action = new ObtainCreditCardAction($app['form.factory'], $app['payum.template.obtain_credit_card']);
-            $action->setRequest($app['request']);
-
-            return $action;
-        });
-
-        $app['payum.gateway_config_storage'] = $app->share(function($app) {
-            return null;
-        });
-
-        $app['payum.security.token_storage'] = $app->share(function() {
-            throw new \LogicException('This service has to be overwritten. Check the example in the doc at payum.org');
-        });
-
         $app['payum.reply_to_symfony_response_converter'] = $app->share(function($app) {
             return new ReplyToSymfonyResponseConverter();
-        });
-
-        $app['payum.security.http_request_verifier'] = $app->share(function($app) {
-            return new HttpRequestVerifier($app['payum.security.token_storage']);
-        });
-
-        $app['payum.security.token_factory'] = $app->share(function($app) {
-            return new GenericTokenFactory(
-                new TokenFactory($app['payum.security.token_storage'], $app['payum'], $app['url_generator']),
-                array(
-                    'capture' => 'payum_capture_do',
-                    'notify' => 'payum_notify_do',
-                    'authorize' => 'payum_authorize_do',
-                    'refund' => 'payum_refund_do'
-                )
-            );
         });
 
         $app['form.types'] = $app->share($app->extend('form.types', function ($types) use ($app) {
@@ -110,54 +121,19 @@ class PayumProvider implements ServiceProviderInterface
         }));
 
         $app['payum.gateway_choices'] = $app->share(function ($app) {
-            return array();
-        });
+            /** @var Payum $payum */
+            $payum = $app['payum'];
 
-        $app['payum.core_gateway_factory_config'] = $app->share(function ($app) {
-            return [
-                'twig.env' => $app['twig'],
-                'payum.template.layout' => $app['payum.template.layout'],
+            $choices = [];
+            foreach ($payum->getGatewayFactories() as $name => $factory) {
+                if (in_array($name, ['omnipay', 'omnipay_direct', 'omnipay_offsite'])) {
+                    continue;
+                }
 
-                'payum.action.get_http_request' => $app['payum.action.get_http_request'],
-                'payum.action.obtain_credit_card' => $app['payum.action.get_http_request'],
-            ];
-        });
-
-        $app['payum.core_gateway_factory'] = $app->share(function ($app) {
-            return new GatewayFactory($app['payum.core_gateway_factory_config']);
-        });
-
-        $app['payum.gateway_factories'] = $app->share(function () {
-            return [
-                // name => instance of GatewayFactoryInterface or service id
-            ];
-        });
-
-        $app['payum.gateways'] = $app->share(function () {
-            return [
-                // name => instance of GatewayInterface or service id
-            ];
-        });
-
-        $app['payum.storages'] = $app->share(function ($app) {
-            return [
-                // modelClass => instance of StorageInterface or service id
-            ];
-        });
-
-        $app['payum'] = $app->share(function($app) {
-            $registry = new PimpleAwareRegistry(
-                $app['payum.gateways'],
-                $app['payum.storages'],
-                $app['payum.gateway_factories']
-            );
-            $registry->setPimple($app);
-
-            if ($configStorage = $app['payum.gateway_config_storage']) {
-                $registry = new DynamicRegistry($configStorage, $registry);
+                $choices[$name] = ucwords(str_replace(['_', 'omnipay'], ' ', $name));
             }
 
-            return $registry;
+            return $choices;
         });
     }
 
@@ -167,41 +143,25 @@ class PayumProvider implements ServiceProviderInterface
     protected function registerControllers(Application $app)
     {
         $app['payum.controller.authorize'] = $app->share(function() use ($app) {
-            return new AuthorizeController(
-                $app['payum.security.token_factory'],
-                $app['payum.security.http_request_verifier'],
-                $app['payum']
-            );
+            return new AuthorizeController($app['payum']);
         });
         $app->get('/payment/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do');
         $app->post('/payment/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do_post');
 
         $app['payum.controller.capture'] = $app->share(function() use ($app) {
-            return new CaptureController(
-                $app['payum.security.token_factory'],
-                $app['payum.security.http_request_verifier'],
-                $app['payum']
-            );
+            return new CaptureController($app['payum']);
         });
         $app->get('/payment/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do');
         $app->post('/payment/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do_post');
 
         $app['payum.controller.notify'] = $app->share(function() use ($app) {
-            return new NotifyController(
-                $app['payum.security.token_factory'],
-                $app['payum.security.http_request_verifier'],
-                $app['payum']
-            );
+            return new NotifyController($app['payum']);
         });
         $app->get('/payment/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do');
         $app->post('/payment/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do_post');
 
         $app['payum.controller.refund'] = $app->share(function() use ($app) {
-            return new RefundController(
-                $app['payum.security.token_factory'],
-                $app['payum.security.http_request_verifier'],
-                $app['payum']
-            );
+            return new RefundController($app['payum']);
         });
         $app->get('/payment/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do');
         $app->post('/payment/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do_post');

@@ -1,39 +1,20 @@
 <?php
 namespace Payum\Silex\Controller;
 
-use Payum\Core\Registry\RegistryInterface;
-use Payum\Core\Security\GenericTokenFactoryInterface;
-use Payum\Core\Security\HttpRequestVerifierInterface;
+use Payum\Core\Payum;
 
 abstract class PayumController
 {
     /**
-     * @var GenericTokenFactoryInterface
+     * @var Payum
      */
-    protected $tokenFactory;
+    protected $payum;
 
     /**
-     * @var RegistryInterface
+     * @param Payum $payum
      */
-    protected $registry;
-
-    /**
-     * @var HttpRequestVerifierInterface
-     */
-    protected $httpRequestVerifier;
-
-    /**
-     * @param GenericTokenFactoryInterface $tokenFactory
-     * @param HttpRequestVerifierInterface $httpRequestVerifier
-     * @param RegistryInterface $registry
-     */
-    public function __construct(
-        GenericTokenFactoryInterface $tokenFactory,
-        HttpRequestVerifierInterface $httpRequestVerifier,
-        RegistryInterface $registry
-    ) {
-        $this->tokenFactory = $tokenFactory;
-        $this->registry = $registry;
-        $this->httpRequestVerifier = $httpRequestVerifier;
+    public function __construct(Payum $payum)
+    {
+        $this->payum = $payum;
     }
 }
