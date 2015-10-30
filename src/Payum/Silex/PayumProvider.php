@@ -18,13 +18,8 @@ use Payum\Core\PayumBuilder;
 use Payum\Core\Registry\StorageRegistryInterface;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Core\Storage\StorageInterface;
-use Payum\Silex\Controller\AuthorizeController;
-use Payum\Silex\Controller\CaptureController;
-use Payum\Silex\Controller\NotifyController;
-use Payum\Silex\Controller\RefundController;
 use Silex\Application;
 use Silex\ServiceProviderInterface;
-use Symfony\Component\HttpKernel\HttpCache\StoreInterface;
 
 class PayumProvider implements ServiceProviderInterface
 {
@@ -194,6 +189,6 @@ class PayumProvider implements ServiceProviderInterface
             $converter = $app['payum.reply_to_symfony_response_converter'];
 
             return $converter->convert($e);
-        }, $priority = 100);
+        });
     }
 }

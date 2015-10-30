@@ -1,11 +1,11 @@
 <?php
-namespace Payum\Silex\Controller;
+namespace Payum\Silex;
 
-use Payum\Core\Request\Refund;
+use Payum\Core\Request\Authorize;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 
-class RefundController extends PayumController
+class AuthorizeController extends PayumController
 {
     /**
      * @param Request $request
@@ -17,7 +17,7 @@ class RefundController extends PayumController
         $token = $this->payum->getHttpRequestVerifier()->verify($request);
 
         $gateway = $this->payum->getGateway($token->getGatewayName());
-        $gateway->execute(new Refund($token));
+        $gateway->execute(new Authorize($token));
 
         $this->payum->getHttpRequestVerifier()->invalidate($token);
 

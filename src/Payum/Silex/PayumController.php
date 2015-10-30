@@ -1,5 +1,5 @@
 <?php
-namespace Payum\Silex\Controller;
+namespace Payum\Silex;
 
 use Payum\Core\Payum;
 
