@@ -19,31 +19,16 @@ use Payum\Core\Registry\StorageRegistryInterface;
 use Payum\Core\Reply\ReplyInterface;
 use Payum\Core\Storage\StorageInterface;
 use Silex\Application;
+use Silex\ControllerCollection;
+use Silex\ControllerProviderInterface;
 use Silex\ServiceProviderInterface;
 
-class PayumProvider implements ServiceProviderInterface
+class PayumProvider implements ServiceProviderInterface, ControllerProviderInterface
 {
     /**
      * {@inheritDoc}
      */
     public function register(Application $app)
-    {
-        $this->registerService($app);
-        $this->registerControllers($app);
-        $this->registerListeners($app);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function boot(Application $app)
-    {
-    }
-
-    /**
-     * @param Application $app
-     */
-    protected function registerService(Application $app)
     {
         $app['payum.builder'] = $app->share(function($app) {
             $builder = new PayumBuilder();
@@ -143,43 +128,7 @@ class PayumProvider implements ServiceProviderInterface
 
             return $choices;
         });
-    }
 
-    /**
-     * @param Application $app
-     */
-    protected function registerControllers(Application $app)
-    {
-        $app['payum.controller.authorize'] = $app->share(function() use ($app) {
-            return new AuthorizeController($app['payum']);
-        });
-        $app->get('/payment/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do');
-        $app->post('/payment/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do_post');
-
-        $app['payum.controller.capture'] = $app->share(function() use ($app) {
-            return new CaptureController($app['payum']);
-        });
-        $app->get('/payment/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do');
-        $app->post('/payment/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do_post');
-
-        $app['payum.controller.notify'] = $app->share(function() use ($app) {
-            return new NotifyController($app['payum']);
-        });
-        $app->get('/payment/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do');
-        $app->post('/payment/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do_post');
-
-        $app['payum.controller.refund'] = $app->share(function() use ($app) {
-            return new RefundController($app['payum']);
-        });
-        $app->get('/payment/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do');
-        $app->post('/payment/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do_post');
-    }
-
-    /**
-     * @param Application $app
-     */
-    protected function registerListeners(Application $app)
-    {
         $app->error(function (\Exception $e, $code) use ($app) {
             if (false == $e instanceof ReplyInterface) {
                 return;
@@ -190,5 +139,49 @@ class PayumProvider implements ServiceProviderInterface
 
             return $converter->convert($e);
         });
+
+        $app['payum.controller.notify'] = $app->share(function() use ($app) {
+            return new NotifyController($app['payum']);
+        });
+        $app['payum.controller.authorize'] = $app->share(function() use ($app) {
+            return new AuthorizeController($app['payum']);
+        });
+
+        $app['payum.controller.capture'] = $app->share(function() use ($app) {
+            return new CaptureController($app['payum']);
+        });
+
+        $app['payum.controller.refund'] = $app->share(function() use ($app) {
+            return new RefundController($app['payum']);
+        });
+
+        $app['payum.payments_controller_collection'] = $app['controllers_factory'];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function connect(Application $app)
+    {
+        /** @var ControllerCollection $controllers */
+        $payment = $app['payum.payments_controller_collection'];
+
+        $payment->get('/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do');
+        $payment->post('/authorize/{payum_token}', 'payum.controller.authorize:doAction')->bind('payum_authorize_do_post');
+        $payment->get('/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do');
+        $payment->post('/capture/{payum_token}', 'payum.controller.capture:doAction')->bind('payum_capture_do_post');
+        $payment->get('/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do');
+        $payment->post('/notify/{payum_token}', 'payum.controller.notify:doAction')->bind('payum_notify_do_post');
+        $payment->get('/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do');
+        $payment->post('/refund/{payum_token}', 'payum.controller.refund:doAction')->bind('payum_refund_do_post');
+
+        return $payment;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function boot(Application $app)
+    {
     }
 }
