@@ -22,7 +22,7 @@
   "require": {
     "php": ">=5.5.2",
     "silex/silex": "~1.2",
-    "payum/core": "1.0.*@dev"
+    "payum/core": "^1.0"
   },
   "suggest": {
     "payum/payum": "If you want to install all supported gateways at once"

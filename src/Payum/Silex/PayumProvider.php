@@ -38,6 +38,8 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
             $builder->setCoreGatewayFactoryConfig([
                 'twig.env' => $app['twig'],
 
+                'payum.template.obtain_credit_card' => '@PayumSymfonyBridge/obtainCreditCard.html.twig',
+
                 'payum.action.get_http_request' => function() use ($app) {
                     $action = new GetHttpRequestAction();
                     $action->setHttpRequest($app['request']);
@@ -45,7 +47,7 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
                     return $action;
                 },
                 'payum.action.obtain_credit_card' => function(ArrayObject $config) use($app) {
-                    $action = new ObtainCreditCardAction($app['form.factory'], '@PayumSymfonyBridge/obtainCreditCard.html.twig');
+                    $action = new ObtainCreditCardAction($app['form.factory'], $config['payum.template.obtain_credit_card']);
                     $action->setRequest($app['request']);
 
                     return $action;
