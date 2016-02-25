@@ -4,20 +4,17 @@ namespace Payum\Silex;
 use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Bridge\Symfony\Action\GetHttpRequestAction;
 use Payum\Core\Bridge\Symfony\Action\ObtainCreditCardAction;
+use Payum\Core\Bridge\Symfony\Builder\HttpRequestVerifierBuilder;
+use Payum\Core\Bridge\Symfony\Builder\TokenFactoryBuilder;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardExpirationDateType;
 use Payum\Core\Bridge\Symfony\Form\Type\CreditCardType;
 use Payum\Core\Bridge\Symfony\Form\Type\GatewayConfigType;
 use Payum\Core\Bridge\Symfony\Form\Type\GatewayFactoriesChoiceType;
 use Payum\Core\Bridge\Symfony\Form\Type\GatewayChoiceType;
 use Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter;
-use Payum\Core\Bridge\Symfony\Security\HttpRequestVerifier;
-use Payum\Core\Bridge\Symfony\Security\TokenFactory;
-use Payum\Core\Bridge\Twig\TwigFactory;
 use Payum\Core\Payum;
 use Payum\Core\PayumBuilder;
-use Payum\Core\Registry\StorageRegistryInterface;
 use Payum\Core\Reply\ReplyInterface;
-use Payum\Core\Storage\StorageInterface;
 use Silex\Application;
 use Silex\ControllerCollection;
 use Silex\ControllerProviderInterface;
@@ -32,8 +29,6 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
     {
         $app['payum.builder'] = $app->share(function($app) {
             $builder = new PayumBuilder();
-
-            $builder->addDefaultStorages();
 
             $builder->setCoreGatewayFactoryConfig([
                 'twig.env' => $app['twig'],
@@ -61,13 +56,9 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
                 'refund' => 'payum_refund_do'
             ]);
 
-            $builder->setTokenFactory(function(StorageInterface $tokenStorage, StorageRegistryInterface $registry) use ($app) {
-                return new TokenFactory($tokenStorage, $registry, $app['url_generator']);
-            });
+            $builder->setTokenFactory(new TokenFactoryBuilder($app['url_generator']));
 
-            $builder->setHttpRequestVerifier(function(StorageInterface $tokenStorage) {
-                return new HttpRequestVerifier($tokenStorage);
-            });
+            $builder->setHttpRequestVerifier(new HttpRequestVerifierBuilder());
 
             return $builder;
         });
@@ -78,16 +69,6 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
 
             return $builder->getPayum();
         });
-
-        $app['twig.loader.filesystem'] = $app->share($app->extend('twig.loader.filesystem', function($loader, $app) {
-            /** @var  \Twig_Loader_Filesystem $loader */
-
-            foreach (TwigFactory::createGenericPaths() as $path => $name) {
-                $loader->addPath($path, $name);
-            }
-
-            return $loader;
-        }));
 
         $app['payum.reply_to_symfony_response_converter'] = $app->share(function($app) {
             return new ReplyToSymfonyResponseConverter();
@@ -113,7 +94,7 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
                     continue;
                 }
 
-                $choices[$name] = ucwords(str_replace(['_', 'omnipay'], ' ', $name));
+                $choices[ucwords(str_replace(['_', 'omnipay'], ' ', $name))] = $name;
             }
 
             return $choices;
