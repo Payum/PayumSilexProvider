@@ -19,6 +19,7 @@ use Silex\Application;
 use Silex\ControllerCollection;
 use Silex\ControllerProviderInterface;
 use Silex\ServiceProviderInterface;
+use Symfony\Component\OptionsResolver\Options;
 
 class PayumProvider implements ServiceProviderInterface, ControllerProviderInterface
 {
@@ -77,39 +78,43 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
         $app['form.types'] = $app->share($app->extend('form.types', function ($types) use ($app) {
             $types[] = new CreditCardType();
             $types[] = new CreditCardExpirationDateType();
-            $types[] = new GatewayFactoriesChoiceType($app['payum.gateway_factory_choices']);
-            $types[] = new GatewayChoiceType($app['payum.gateway_choices']);
+            $types[] = new GatewayFactoriesChoiceType($app['payum.gateway_factory_choices_callback']);
+            $types[] = new GatewayChoiceType($app['payum.gateway_choices_callback']);
             $types[] = new GatewayConfigType($app['payum']);
 
             return $types;
         }));
 
-        $app['payum.gateway_factory_choices'] = $app->share(function ($app) {
-            /** @var Payum $payum */
-            $payum = $app['payum'];
+        $app['payum.gateway_factory_choices_callback'] = $app->share(function ($app) {
+            return function(Options $options) use ($app) {
+                /** @var Payum $payum */
+                $payum = $app['payum'];
 
-            $choices = [];
-            foreach ($payum->getGatewayFactories() as $name => $factory) {
-                if (in_array($name, ['omnipay', 'omnipay_direct', 'omnipay_offsite'])) {
-                    continue;
+                $choices = [];
+                foreach ($payum->getGatewayFactories() as $name => $factory) {
+                    if (in_array($name, ['omnipay', 'omnipay_direct', 'omnipay_offsite'])) {
+                        continue;
+                    }
+
+                    $choices[ucwords(str_replace(['_', 'omnipay'], ' ', $name))] = $name;
                 }
 
-                $choices[ucwords(str_replace(['_', 'omnipay'], ' ', $name))] = $name;
-            }
-
-            return $choices;
+                return $choices;
+            };
         });
 
-        $app['payum.gateway_choices'] = $app->share(function ($app) {
-            /** @var Payum $payum */
-            $payum = $app['payum'];
+        $app['payum.gateway_choices_callback'] = $app->share(function ($app) {
+            return function(Options $options) use ($app) {
+                /** @var Payum $payum */
+                $payum = $app['payum'];
 
-            $choices = [];
-            foreach ($payum->getGateways() as $name => $gateway) {
-                $choices[$name] = ucwords(str_replace(['_'], ' ', $name));
-            }
+                $choices = [];
+                foreach ($payum->getGateways() as $name => $gateway) {
+                    $choices[$name] = ucwords(str_replace(['_'], ' ', $name));
+                }
 
-            return $choices;
+                return $choices;
+            };
         });
 
         $app->error(function (\Exception $e, $code) use ($app) {
