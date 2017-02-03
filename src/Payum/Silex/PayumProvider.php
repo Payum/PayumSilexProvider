@@ -2,7 +2,6 @@
 namespace Payum\Silex;
 
 use Payum\Core\Bridge\Spl\ArrayObject;
-use Payum\Core\Bridge\Symfony\Action\GetHttpRequestAction;
 use Payum\Core\Bridge\Symfony\Action\ObtainCreditCardAction;
 use Payum\Core\Bridge\Symfony\Builder\HttpRequestVerifierBuilder;
 use Payum\Core\Bridge\Symfony\Builder\TokenFactoryBuilder;
@@ -15,6 +14,7 @@ use Payum\Core\Bridge\Symfony\ReplyToSymfonyResponseConverter;
 use Payum\Core\Payum;
 use Payum\Core\PayumBuilder;
 use Payum\Core\Reply\ReplyInterface;
+use Payum\Silex\Action\GetHttpRequestAction;
 use Silex\Application;
 use Silex\ControllerCollection;
 use Silex\ControllerProviderInterface;
@@ -37,10 +37,7 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
                 'payum.template.obtain_credit_card' => '@PayumSymfonyBridge/obtainCreditCard.html.twig',
 
                 'payum.action.get_http_request' => function() use ($app) {
-                    $action = new GetHttpRequestAction();
-                    $action->setHttpRequest($app['request']);
-
-                    return $action;
+                    return new GetHttpRequestAction($app);
                 },
                 'payum.action.obtain_credit_card' => function(ArrayObject $config) use($app) {
                     $action = new ObtainCreditCardAction($app['form.factory'], $config['payum.template.obtain_credit_card']);
