@@ -21,9 +21,9 @@
   ],
   "require": {
     "php": ">=5.5.2",
-    "silex/silex": "^1.2",
+    "silex/silex": "^1.2|^2",
     "symfony/form": "^3",
-    "payum/core": "^1.2"
+    "payum/core": "^1.3"
   },
   "suggest": {
     "payum/payum": "If you want to install all supported gateways at once"

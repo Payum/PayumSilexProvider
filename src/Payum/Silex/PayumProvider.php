@@ -112,16 +112,16 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
             return $choices;
         });
 
-        $app->error(function (\Exception $e, $code) use ($app) {
-            if (false == $e instanceof ReplyInterface) {
-                return;
-            }
-
-            /** @var ReplyToSymfonyResponseConverter $converter */
-            $converter = $app['payum.reply_to_symfony_response_converter'];
-
-            return $converter->convert($e);
-        });
+//        $app->error(function (\Exception $e, $code) use ($app) {
+//            if (false == $e instanceof ReplyInterface) {
+//                return;
+//            }
+//
+//            /** @var ReplyToSymfonyResponseConverter $converter */
+//            $converter = $app['payum.reply_to_symfony_response_converter'];
+//
+//            return $converter->convert($e);
+//        });
 
         $app['payum.controller.notify'] = $app->share(function() use ($app) {
             return new NotifyController($app['payum']);
