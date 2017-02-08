@@ -107,7 +107,7 @@ class PayumProvider implements ServiceProviderInterface, ControllerProviderInter
 
                 $choices = [];
                 foreach ($payum->getGateways() as $name => $gateway) {
-                    $choices[$name] = ucwords(str_replace(['_'], ' ', $name));
+                    $choices[ucwords(str_replace(['_'], ' ', $name))] = $name;
                 }
 
                 return $choices;
